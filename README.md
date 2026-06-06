@@ -1,5 +1,7 @@
 # Peer-to-Peer Screen Share
 
+Live demo: https://vijayaprm.github.io/p2p-screen-share/
+
 A web-based peer-to-peer screen sharing application that enables direct communication between two users without requiring a central server. The application uses WebRTC technology to establish direct connections.
 
 ## Features
