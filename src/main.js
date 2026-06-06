@@ -34,8 +34,9 @@ const viewerIndicators = {
 // Active state values
 let currentRole = null; // 'host' | 'viewer' | null
 let localStream = null;
-let peerConnection = null;
+let peerConnections = new Map(); // Store multiple peer connections
 let dataChannel = null;
+let hostKey = null; // Store the host key for multiple viewers
 
 // WebRTC Configuration - Public Google STUN servers
 const rtcConfig = {
@@ -163,6 +164,45 @@ document.getElementById('btn-viewer-back-to-landing').addEventListener('click', 
 
 // --- WebRTC Logic ---
 
+// Helper to compress and encode key (SDP + peerId)
+async function encodeSessionKey(id, sdpObj) {
+    const data = { id, sdp: sdpObj };
+    const str = JSON.stringify(data);
+    
+    const stream = new Blob([str]).stream();
+    const compressedStream = stream.pipeThrough(new CompressionStream('deflate'));
+    const response = new Response(compressedStream);
+    const buffer = await response.arrayBuffer();
+    
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+}
+
+// Helper to decode and decompress key
+async function decodeSessionKey(hashStr) {
+    let b64 = hashStr.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) {
+        b64 += '=';
+    }
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    const stream = new Blob([bytes]).stream();
+    const decompressedStream = stream.pipeThrough(new DecompressionStream('deflate'));
+    const response = new Response(decompressedStream);
+    const jsonStr = await response.text();
+    return JSON.parse(jsonStr);
+}
+
 // Helper function to wait for ICE candidates to gather completely or timeout at 1.5s
 function waitForIceCandidates(pc) {
     return new Promise((resolve) => {
@@ -208,43 +248,69 @@ function waitForIceCandidates(pc) {
 }
 
 // General RTCPeerConnection Initialization
-function initPeerConnection() {
-    peerConnection = new RTCPeerConnection(rtcConfig);
+function initPeerConnection(peerId) {
+    const pc = new RTCPeerConnection(rtcConfig);
+    peerConnections.set(peerId, pc);
 
     // Monitor peer connection state changes
-    peerConnection.onconnectionstatechange = () => {
-        const state = peerConnection.connectionState;
-        console.log(`P2P Connection State: ${state}`);
+    pc.onconnectionstatechange = () => {
+        const state = pc.connectionState;
+        console.log(`P2P Connection State for [${peerId}]: ${state}`);
         
         if (state === 'connected') {
-            showToast("Direct connection established!", "success");
-            showScreen('stream');
-            document.getElementById('stream-status-label').textContent = "Direct Secure Stream Active";
+            showToast(`Direct connection with ${peerId} established!`, "success");
+            
+            // Switch to stream screen if not already there
+            if (!screens.stream.classList.contains('active')) {
+                showScreen('stream');
+                if (currentRole === 'host') {
+                    document.querySelector('.stream-layout').classList.add('has-sidebar');
+                    const videoElement = document.getElementById('p2p-video');
+                    videoElement.srcObject = localStream;
+                    videoElement.muted = true;
+                } else {
+                    document.querySelector('.stream-layout').classList.remove('has-sidebar');
+                }
+            }
+            
+            if (currentRole === 'host') {
+                renderViewerList();
+            } else {
+                document.getElementById('stream-status-label').textContent = "Direct Secure Stream Active";
+            }
         }
         
         if (state === 'disconnected') {
-            showToast("Peer disconnected.", "info");
+            showToast(`Peer ${peerId} disconnected.`, "info");
+            if (currentRole === 'host') {
+                renderViewerList();
+            } else {
+                resetApp();
+            }
         }
 
-        if (state === 'failed') {
-            showToast("Connection failed to establish.", "error");
-            document.getElementById('stream-status-label').textContent = "Connection Failed";
+        if (state === 'failed' || state === 'closed') {
+            console.log(`Connection for [${peerId}] failed or closed.`);
+            if (currentRole === 'host') {
+                peerConnections.delete(peerId);
+                renderViewerList();
+            } else {
+                showToast("Connection failed to establish.", "error");
+                resetApp();
+            }
         }
     };
 
     // Track handler for the Viewer
-    // NOTE: Do NOT call showScreen('stream') here.
-    // ontrack fires as soon as setRemoteDescription is called (before ICE/connection),
-    // which would hide the viewer wizard before the response key is displayed.
-    // We only switch screens once the connection is fully established (see onconnectionstatechange).
-    peerConnection.ontrack = (event) => {
-        console.log("Remote track received — storing stream, waiting for connection.");
+    pc.ontrack = (event) => {
+        console.log(`Remote track received from [${peerId}] — storing stream, waiting for connection.`);
         const videoElement = document.getElementById('p2p-video');
         if (event.streams && event.streams[0]) {
             videoElement.srcObject = event.streams[0];
-            // Do NOT showScreen('stream') here — connection not established yet.
         }
     };
+
+    return pc;
 }
 
 // --- Host Flow Actions ---
@@ -259,15 +325,38 @@ document.getElementById('btn-host-capture').addEventListener('click', async () =
     `;
 
     try {
-        // 1. Request Display Media
-        localStream = await navigator.mediaDevices.getDisplayMedia({
+        // 1. Request Display Media (with optional audio)
+        const shareAudio = document.getElementById('chk-host-audio').checked;
+        const constraints = {
             video: {
                 width: { ideal: 1920 },
                 height: { ideal: 1080 },
                 frameRate: { ideal: 30 }
             },
-            audio: false
-        });
+            audio: shareAudio ? {
+                echoCancellation: true,
+                noiseSuppression: true
+            } : false
+        };
+
+        try {
+            localStream = await navigator.mediaDevices.getDisplayMedia(constraints);
+        } catch (err) {
+            if (shareAudio) {
+                console.warn("Screen capture with audio failed. Retrying with video only.", err);
+                showToast("Audio capture failed. Falling back to video-only.", "warning");
+                localStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 30 }
+                    },
+                    audio: false
+                });
+            } else {
+                throw err;
+            }
+        }
 
         // Listen for user stopping display share through standard browser UI
         localStream.getVideoTracks().forEach(track => {
@@ -277,33 +366,34 @@ document.getElementById('btn-host-capture').addEventListener('click', async () =
             };
         });
 
-        // 2. Initialize Peer Connection
-        initPeerConnection();
+        // 2. Initialize the first Peer Connection with a random ID
+        const firstPeerId = 'peer-' + Math.random().toString(36).substring(2, 8);
+        const pc = initPeerConnection(firstPeerId);
 
         // Create standard WebRTC Data Channel to enforce active transport path
-        dataChannel = peerConnection.createDataChannel('infinity-cast-data');
-        dataChannel.onopen = () => console.log("Data channel opened on Host.");
-        dataChannel.onmessage = (e) => console.log(`Data Channel Msg: ${e.data}`);
+        const dc = pc.createDataChannel('infinity-cast-data');
+        dc.onopen = () => console.log(`Data channel opened on Host for [${firstPeerId}].`);
+        dc.onmessage = (e) => console.log(`Data Channel Msg from [${firstPeerId}]: ${e.data}`);
 
         // 3. Add Screen Track to PeerConnection
         localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
+            pc.addTrack(track, localStream);
         });
 
         // 4. Create local SDP Offer
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
 
         // 5. Wait for ICE candidate gathering
         captureButton.innerHTML = `
             <div class="spinner" style="border-top-color: #ffffff; width: 16px; height: 16px; margin-right: 8px; display: inline-block;"></div>
             Gathering network routes...
         `;
-        await waitForIceCandidates(peerConnection);
+        await waitForIceCandidates(pc);
 
-        // 6. Serialize and display full Host Key
-        const fullOffer = JSON.stringify(peerConnection.localDescription);
-        document.getElementById('txt-host-offer').value = fullOffer;
+        // 6. Serialize, compress, and display Host Key
+        const compressedKey = await encodeSessionKey(firstPeerId, pc.localDescription);
+        document.getElementById('txt-host-offer').value = compressedKey;
 
         showToast("Host Key successfully generated!", "success");
         showWizardStep('host', 2);
@@ -340,16 +430,7 @@ document.getElementById('btn-host-go-to-3').addEventListener('click', () => {
 // Back buttons for Host steps
 document.getElementById('btn-host-back-to-1').addEventListener('click', () => {
     if (confirm("Going back will reset your current screen share. Continue?")) {
-        // Stop current stream & clear connection
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            localStream = null;
-        }
-        if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-        }
-        document.getElementById('txt-host-offer').value = '';
+        resetApp();
         showWizardStep('host', 1);
     }
 });
@@ -367,10 +448,17 @@ document.getElementById('btn-host-connect').addEventListener('click', async () =
     }
 
     try {
-        const answerDesc = new RTCSessionDescription(JSON.parse(answerInput));
+        const decoded = await decodeSessionKey(answerInput);
+        if (!peerConnections.has(decoded.id)) {
+            showToast("Connection Session ID mismatch or expired.", "error");
+            return;
+        }
+
+        const pc = peerConnections.get(decoded.id);
+        const answerDesc = new RTCSessionDescription(decoded.sdp);
         
         showToast("Connecting directly to peer...", "info");
-        await peerConnection.setRemoteDescription(answerDesc);
+        await pc.setRemoteDescription(answerDesc);
         
         // Host screen starts showing local preview as confirmation
         const videoElement = document.getElementById('p2p-video');
@@ -401,31 +489,33 @@ document.getElementById('btn-viewer-process-offer').addEventListener('click', as
     `;
 
     try {
-        const offerDesc = new RTCSessionDescription(JSON.parse(offerInput));
+        const decoded = await decodeSessionKey(offerInput);
+        const hostPeerId = decoded.id;
+        const offerDesc = new RTCSessionDescription(decoded.sdp);
 
         // 1. Initialize PeerConnection
-        initPeerConnection();
+        const pc = initPeerConnection(hostPeerId);
 
         // Data channel listener on Viewer
-        peerConnection.ondatachannel = (event) => {
+        pc.ondatachannel = (event) => {
             const receiveChannel = event.channel;
-            receiveChannel.onopen = () => console.log("Data channel opened on Viewer.");
-            receiveChannel.onmessage = (e) => console.log(`Data Msg: ${e.data}`);
+            receiveChannel.onopen = () => console.log(`Data channel opened on Viewer with Host [${hostPeerId}].`);
+            receiveChannel.onmessage = (e) => console.log(`Data Msg from Host: ${e.data}`);
         };
 
         // 2. Set Host Offer as Remote Description
-        await peerConnection.setRemoteDescription(offerDesc);
+        await pc.setRemoteDescription(offerDesc);
 
         // 3. Create local Answer
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
 
         // 4. Wait for ICE candidate gathering
-        await waitForIceCandidates(peerConnection);
+        await waitForIceCandidates(pc);
 
         // 5. Display Response Key (Answer)
-        const fullAnswer = JSON.stringify(peerConnection.localDescription);
-        document.getElementById('txt-viewer-answer').value = fullAnswer;
+        const compressedAnswer = await encodeSessionKey(hostPeerId, pc.localDescription);
+        document.getElementById('txt-viewer-answer').value = compressedAnswer;
 
         showToast("Response Key successfully generated!", "success");
         showWizardStep('viewer', 2);
@@ -452,11 +542,7 @@ document.getElementById('btn-copy-viewer-answer').addEventListener('click', () =
 // Back button for Viewer Step 2
 document.getElementById('btn-viewer-back-to-1').addEventListener('click', () => {
     if (confirm("Going back will reset the current connection attempt. Continue?")) {
-        if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-        }
-        document.getElementById('txt-viewer-answer').value = '';
+        resetApp();
         showWizardStep('viewer', 1);
     }
 });
@@ -512,26 +598,238 @@ document.getElementById('btn-stop-stream').addEventListener('click', () => {
     }
 });
 
+// --- Stream Manager Sidebar & Invite Modal Logic ---
+const inviteModal = document.getElementById('invite-modal');
+const btnOpenInviteModal = document.getElementById('btn-open-invite-modal');
+const btnCloseInviteModal = document.getElementById('btn-close-invite-modal');
+const btnCopyInviteLink = document.getElementById('btn-copy-invite-link');
+const btnCopyInviteKey = document.getElementById('btn-copy-invite-key');
+const btnConnectInvitedViewer = document.getElementById('btn-connect-invited-viewer');
+
+const txtInviteLink = document.getElementById('txt-invite-link');
+const txtInviteKey = document.getElementById('txt-invite-key');
+const txtInviteResponse = document.getElementById('txt-invite-response');
+
+let pendingInvitePeerId = null;
+
+// Open Invite Modal
+btnOpenInviteModal.addEventListener('click', async () => {
+    if (!localStream) {
+        showToast("No active local stream.", "error");
+        return;
+    }
+    
+    btnOpenInviteModal.disabled = true;
+    btnOpenInviteModal.innerHTML = 'Generating Key...';
+    
+    try {
+        // Generate a new peer ID for this invited peer
+        const invitedPeerId = 'peer-' + Math.random().toString(36).substring(2, 8);
+        pendingInvitePeerId = invitedPeerId;
+        
+        // Initialize PeerConnection
+        const pc = initPeerConnection(invitedPeerId);
+        
+        // Create Data Channel
+        const dc = pc.createDataChannel('infinity-cast-data');
+        dc.onopen = () => console.log(`Data channel opened on Host for [${invitedPeerId}].`);
+        dc.onmessage = (e) => console.log(`Data Channel Msg from [${invitedPeerId}]: ${e.data}`);
+        
+        // Add local stream tracks
+        localStream.getTracks().forEach(track => {
+            pc.addTrack(track, localStream);
+        });
+        
+        // Create offer & set description
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        
+        // Wait for ICE candidates
+        await waitForIceCandidates(pc);
+        
+        // Encode invitation key
+        const newKey = await encodeSessionKey(invitedPeerId, pc.localDescription);
+        
+        // Set link and key textarea values
+        const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${newKey}`;
+        txtInviteLink.value = inviteLink;
+        txtInviteKey.value = newKey;
+        txtInviteResponse.value = '';
+        
+        // Open the modal
+        inviteModal.classList.add('active');
+        showToast("Invitation key ready!", "success");
+    } catch (err) {
+        console.error("Failed to generate invite:", err);
+        showToast("Failed to generate invitation key.", "error");
+        pendingInvitePeerId = null;
+    } finally {
+        btnOpenInviteModal.disabled = false;
+        btnOpenInviteModal.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16" style="margin-right: 4px;">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="8.5" cy="7" r="4"/>
+                <line x1="20" y1="8" x2="20" y2="14"/>
+                <line x1="23" y1="11" x2="17" y2="11"/>
+            </svg>
+            Invite Viewer
+        `;
+    }
+});
+
+// Close Invite Modal
+btnCloseInviteModal.addEventListener('click', () => {
+    // If we close the modal without connecting, we should cleanup the pending connection
+    if (pendingInvitePeerId && peerConnections.has(pendingInvitePeerId)) {
+        const pc = peerConnections.get(pendingInvitePeerId);
+        // Only close it if it's still in connecting state
+        if (pc.connectionState !== 'connected') {
+            pc.close();
+            peerConnections.delete(pendingInvitePeerId);
+        }
+    }
+    pendingInvitePeerId = null;
+    inviteModal.classList.remove('active');
+});
+
+// Copy Invite Link
+btnCopyInviteLink.addEventListener('click', () => {
+    copyToClipboard('txt-invite-link', 'btn-copy-invite-link');
+});
+
+// Copy Invite Key
+btnCopyInviteKey.addEventListener('click', () => {
+    copyToClipboard('txt-invite-key', 'btn-copy-invite-key');
+});
+
+// Connect Invited Viewer
+btnConnectInvitedViewer.addEventListener('click', async () => {
+    const responseVal = txtInviteResponse.value.trim();
+    if (!responseVal) {
+        showToast("Please paste the Viewer's Response Key.", "error");
+        return;
+    }
+    
+    try {
+        const decoded = await decodeSessionKey(responseVal);
+        const peerId = decoded.id;
+        
+        if (peerId !== pendingInvitePeerId) {
+            showToast("Connection ID mismatch.", "error");
+            return;
+        }
+        
+        if (!peerConnections.has(peerId)) {
+            showToast("Session expired or invalid.", "error");
+            return;
+        }
+        
+        const pc = peerConnections.get(peerId);
+        const answerDesc = new RTCSessionDescription(decoded.sdp);
+        
+        showToast("Connecting to viewer...", "info");
+        await pc.setRemoteDescription(answerDesc);
+        
+        // Close modal
+        inviteModal.classList.remove('active');
+        pendingInvitePeerId = null;
+        renderViewerList();
+    } catch (err) {
+        console.error("Failed to connect viewer from modal:", err);
+        showToast("Failed to parse Response Key.", "error");
+    }
+});
+
+// Disconnect Viewer
+function disconnectPeer(peerId) {
+    if (peerConnections.has(peerId)) {
+        const pc = peerConnections.get(peerId);
+        pc.close();
+        peerConnections.delete(peerId);
+        showToast(`Disconnected viewer: ${peerId}`, "info");
+        renderViewerList();
+    }
+}
+
+// Render Host Dashboard Viewers list
+function renderViewerList() {
+    const listEl = document.getElementById('viewer-list');
+    const countEl = document.getElementById('viewer-count');
+    if (!listEl || !countEl) return;
+
+    listEl.innerHTML = '';
+    countEl.textContent = peerConnections.size;
+    
+    if (peerConnections.size === 0) {
+        listEl.innerHTML = `
+            <div class="viewer-empty-state">
+                No active viewers. Share an invite link to start streaming!
+            </div>
+        `;
+        return;
+    }
+    
+    peerConnections.forEach((pc, peerId) => {
+        const card = document.createElement('div');
+        card.className = 'viewer-card';
+        
+        const isConnected = pc.connectionState === 'connected';
+        const stateClass = isConnected ? 'connected' : 'connecting';
+        const stateText = isConnected ? 'Connected' : 'Connecting';
+        
+        card.innerHTML = `
+            <div class="viewer-info">
+                <span class="viewer-id">${peerId}</span>
+                <span class="viewer-status ${stateClass}">
+                    <span class="status-dot"></span>
+                    ${stateText}
+                </span>
+            </div>
+            <button class="btn-disconnect-viewer" data-id="${peerId}" title="Disconnect Viewer">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        `;
+        
+        card.querySelector('.btn-disconnect-viewer').addEventListener('click', () => {
+            if (confirm(`Disconnect viewer ${peerId}?`)) {
+                disconnectPeer(peerId);
+            }
+        });
+        
+        listEl.appendChild(card);
+    });
+}
+
 // Reset Application to initial state
 function resetApp() {
     console.log("Resetting application state...");
     
+    // Close invite modal
+    if (inviteModal) {
+        inviteModal.classList.remove('active');
+    }
+    pendingInvitePeerId = null;
+
     // Stop stream tracks
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
     }
 
-    // Close and reset PeerConnection
-    if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-    }
-    dataChannel = null;
+    // Close and reset PeerConnections
+    peerConnections.forEach((pc) => {
+        pc.close();
+    });
+    peerConnections.clear();
 
     // Reset video elements
     const videoElement = document.getElementById('p2p-video');
-    videoElement.srcObject = null;
+    if (videoElement) {
+        videoElement.srcObject = null;
+    }
 
     // Reset UI inputs
     document.getElementById('txt-host-offer').value = '';
@@ -539,13 +837,38 @@ function resetApp() {
     document.getElementById('txt-viewer-offer').value = '';
     document.getElementById('txt-viewer-answer').value = '';
 
+    // Remove sidebar layouts
+    const layout = document.querySelector('.stream-layout');
+    if (layout) {
+        layout.classList.remove('has-sidebar');
+    }
+
     // Clear active classes & return to Landing
     currentRole = null;
     showScreen('landing');
 }
 
+// Parse query parameters for direct invite joining
+function parseInviteFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const inviteKey = params.get('invite');
+    if (inviteKey) {
+        console.log("Found invite key in URL query parameter.");
+        showToast("Invite link detected! Joining stream...", "success");
+        currentRole = 'viewer';
+        showScreen('viewer');
+        showWizardStep('viewer', 1);
+        document.getElementById('txt-viewer-offer').value = inviteKey;
+        
+        // Clean URL parameter without reloading page
+        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        window.history.replaceState({ path: newUrl }, '', newUrl);
+    }
+}
+
 // Initialise
 resetApp();
+parseInviteFromUrl();
 
 // ── Diagnostics Console ──────────────────────────────────────────────────────
 (function setupDiagnostics() {
