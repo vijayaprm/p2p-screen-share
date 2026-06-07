@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InfinityCast | Serverless Peer-to-Peer Screen Sharing</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script type="module" crossorigin src="/p2p-screen-share/assets/index-Wh2JHmiD.js"></script>
+    <link rel="stylesheet" crossorigin href="/p2p-screen-share/assets/index-C-Ctw7KC.css">
+  </head>
+  <body>
+    <div id="app">
+      <main class="app-container">
+        <header class="main-header">
+          <div class="logo-wrapper">
+            <span class="logo-icon">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </span>
+            <span class="logo-text">InfinityCast</span>
+          </div>
+          <div class="header-badges">
+            <span class="badge badge-primary">Serverless P2P</span>
+            <span class="badge badge-success">Manual signaling</span>
+          </div>
+        </header>
+
+        <section id="landing-screen" class="screen-view active">
+          <div class="hero-content">
+            <h1>
+              Instant Screen Sharing,<br />
+              <span class="gradient-text">No Signal Server Required.</span>
+            </h1>
+            <p class="hero-desc">
+              Stream directly from one browser to another with private manual signaling, low-latency
+              playback, invite links, chat, and local annotation tools.
+            </p>
+          </div>
+
+          <div class="selection-grid">
+            <button class="mode-card" id="btn-choose-host" type="button">
+              <div class="card-icon host-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                  <line x1="8" y1="21" x2="16" y2="21"></line>
+                  <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+              </div>
+              <h3>Share My Screen</h3>
+              <p>Start a direct host session and send a generated key to your viewer.</p>
+              <span class="action-tag">Start streaming</span>
+            </button>
+
+            <button class="mode-card" id="btn-choose-viewer" type="button">
+              <div class="card-icon viewer-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </div>
+              <h3>Join a Stream</h3>
+              <p>Paste a host key or open an invite link to connect straight to the stream.</p>
+              <span class="action-tag">Start watching</span>
+            </button>
+          </div>
+        </section>
+
+        <section id="host-screen" class="screen-view">
+          <div class="wizard-container">
+            <aside class="wizard-sidebar">
+              <button class="btn-back" id="btn-host-back-to-landing" type="button">Back to Home</button>
+              <h2>Host Setup</h2>
+              <p class="sidebar-info">Capture a screen, share the host key, then paste the viewer response.</p>
+
+              <div class="steps-indicator">
+                <div class="step-indicator-item active" id="ind-host-1">
+                  <span class="step-num">1</span>
+                  <span class="step-label">Select screen</span>
+                </div>
+                <div class="step-indicator-item" id="ind-host-2">
+                  <span class="step-num">2</span>
+                  <span class="step-label">Share host key</span>
+                </div>
+                <div class="step-indicator-item" id="ind-host-3">
+                  <span class="step-num">3</span>
+                  <span class="step-label">Connect viewer</span>
+                </div>
+              </div>
+            </aside>
+
+            <div class="wizard-content">
+              <div class="step-panel active" id="panel-host-1">
+                <h3>Choose what to share</h3>
+                <p class="panel-desc">Capture a screen, app window, or browser tab and create a direct host key.</p>
+
+                <div class="option-container">
+                  <label>
+                    <input type="checkbox" id="chk-host-audio" />
+                    Share system or tab audio when supported
+                  </label>
+                </div>
+
+                <div class="action-box">
+                  <button class="btn btn-primary btn-lg" id="btn-host-capture" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                      <path d="M12 17v4M8 21h8"></path>
+                    </svg>
+                    Select Screen & Generate Key
+                  </button>
+                </div>
+              </div>
+
+              <div class="step-panel" id="panel-host-2">
+                <h3>Share your host key</h3>
+                <p class="panel-desc">Send this key to the viewer so they can generate a matching response key.</p>
+
+                <div class="key-display-wrapper">
+                  <textarea id="txt-host-offer" class="key-textarea" readonly placeholder="Generating key..."></textarea>
+                  <button class="btn btn-secondary btn-copy" id="btn-copy-host-offer" type="button">Copy Key</button>
+                </div>
+
+                <div class="step-navigation">
+                  <button class="btn btn-outline" id="btn-host-back-to-1" type="button">Back to Step 1</button>
+                  <button class="btn btn-primary" id="btn-host-go-to-3" type="button">I sent it</button>
+                </div>
+              </div>
+
+              <div class="step-panel" id="panel-host-3">
+                <h3>Paste the response key</h3>
+                <p class="panel-desc">Once the viewer replies, paste the response key here to complete the handshake.</p>
+
+                <div class="key-input-wrapper">
+                  <textarea id="txt-host-answer" class="key-textarea" placeholder="Paste response key here..."></textarea>
+                </div>
+
+                <div class="step-navigation">
+                  <button class="btn btn-outline" id="btn-host-back-to-2" type="button">Back to Step 2</button>
+                  <button class="btn btn-primary" id="btn-host-connect" type="button">Establish P2P Connection</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="viewer-screen" class="screen-view">
+          <div class="wizard-container">
+            <aside class="wizard-sidebar">
+              <button class="btn-back" id="btn-viewer-back-to-landing" type="button">Back to Home</button>
+              <h2>Viewer Setup</h2>
+              <p class="sidebar-info">Paste the host key, generate a response key, and wait for the host to complete the connection.</p>
+
+              <div class="steps-indicator">
+                <div class="step-indicator-item active" id="ind-viewer-1">
+                  <span class="step-num">1</span>
+                  <span class="step-label">Input host key</span>
+                </div>
+                <div class="step-indicator-item" id="ind-viewer-2">
+                  <span class="step-num">2</span>
+                  <span class="step-label">Send response</span>
+                </div>
+              </div>
+            </aside>
+
+            <div class="wizard-content">
+              <div class="step-panel active" id="panel-viewer-1">
+                <h3>Paste the host key</h3>
+                <p class="panel-desc">Use a host key or invite link payload to generate your response.</p>
+
+                <div class="key-input-wrapper">
+                  <textarea id="txt-viewer-offer" class="key-textarea" placeholder="Paste host key here..."></textarea>
+                </div>
+
+                <div class="step-navigation">
+                  <div></div>
+                  <button class="btn btn-primary" id="btn-viewer-process-offer" type="button">Generate Response Key</button>
+                </div>
+              </div>
+
+              <div class="step-panel" id="panel-viewer-2">
+                <h3>Send the response back</h3>
+                <p class="panel-desc">Copy this response key and send it back to the host so they can finalize the connection.</p>
+
+                <div class="key-display-wrapper">
+                  <textarea id="txt-viewer-answer" class="key-textarea" readonly placeholder="Generating response..."></textarea>
+                  <button class="btn btn-secondary btn-copy" id="btn-copy-viewer-answer" type="button">Copy Key</button>
+                </div>
+
+                <div class="status-indicator">
+                  <div class="spinner"></div>
+                  <span id="lbl-viewer-status">Awaiting connection from host...</span>
+                </div>
+
+                <div class="step-navigation">
+                  <button class="btn btn-outline" id="btn-viewer-back-to-1" type="button">Back to Step 1</button>
+                  <div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="stream-screen" class="screen-view">
+          <div class="stream-layout">
+            <div class="stream-main-area">
+              <div class="stream-status-overlay">
+                <div class="connected-badge">
+                  <span class="badge-dot pulse-success"></span>
+                  <span id="stream-status-label">Waiting for a secure direct stream</span>
+                </div>
+              </div>
+
+              <div class="video-wrapper" id="video-wrapper">
+                <video id="p2p-video" autoplay playsinline></video>
+                <canvas id="annotation-canvas" class="annotation-canvas"></canvas>
+              </div>
+
+              <div id="annotation-toolbar" class="annotation-toolbar hidden">
+                <button class="toolbar-btn" id="btn-draw-mode" type="button">Draw</button>
+                <button class="toolbar-btn" id="btn-erase-mode" type="button">Erase</button>
+                <input type="color" id="draw-color" value="#ef7e56" title="Choose Color" />
+                <button class="toolbar-btn" id="btn-clear-canvas" type="button">Clear</button>
+              </div>
+
+              <div class="stream-controls">
+                <button class="control-action-btn" id="btn-toggle-fullscreen" type="button"></button>
+                <button class="control-action-btn" id="btn-toggle-mic" type="button">
+                  <span>Mic</span>
+                </button>
+                <button class="control-action-btn" id="btn-toggle-chat" type="button">
+                  <span>Chat</span>
+                </button>
+                <button class="control-action-btn" id="btn-toggle-annotations" type="button">
+                  <span>Annotations</span>
+                </button>
+                <button class="control-action-btn danger" id="btn-stop-stream" type="button">
+                  <span>Disconnect</span>
+                </button>
+              </div>
+
+              <aside id="viewer-stream-sidebar" class="viewer-sidebar">
+                <div class="chat-header">
+                  <h4>Chat</h4>
+                </div>
+                <div class="chat-log" id="viewer-chat-log"></div>
+                <div class="chat-input-wrapper">
+                  <input id="viewer-chat-input" type="text" placeholder="Type a message..." />
+                  <button class="btn btn-primary" id="btn-send-viewer-chat" type="button">Send</button>
+                </div>
+              </aside>
+            </div>
+
+            <aside id="host-stream-sidebar" class="host-sidebar">
+              <div class="sidebar-header">
+                <h3>Stream Manager</h3>
+                <span class="live-indicator"><span class="live-dot"></span>LIVE</span>
+              </div>
+              <div class="sidebar-section">
+                <h4>Connected Viewers (<span id="viewer-count">0</span>)</h4>
+                <div id="viewer-list" class="viewer-list"></div>
+              </div>
+              <div class="sidebar-actions">
+                <button class="btn btn-primary" id="btn-open-invite-modal" type="button">Invite Viewer</button>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </main>
+
+      <div id="diagnostics-console" class="diagnostics-closed">
+        <button id="btn-toggle-diagnostics" type="button">Diagnostics Console</button>
+        <div class="diagnostics-body">
+          <div class="diagnostics-header">
+            <span>Console log & connection states</span>
+            <button id="btn-clear-diagnostics" type="button">Clear Log</button>
+          </div>
+          <div id="diagnostics-log" class="diagnostics-log"></div>
+        </div>
+      </div>
+
+      <div id="invite-modal" class="modal-overlay">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3>Invite Another Viewer</h3>
+            <button class="btn-close-modal" id="btn-close-invite-modal" type="button">Close</button>
+          </div>
+          <div class="modal-body">
+            <p class="modal-desc">Share an invite link or key with another viewer, then paste their response key here.</p>
+
+            <div class="modal-tab-container">
+              <label class="modal-field-label" for="txt-invite-link">Option 1: Invite Link</label>
+              <div class="key-display-wrapper">
+                <input id="txt-invite-link" class="key-textarea" type="text" style="min-height: 54px;" readonly />
+                <button class="btn btn-secondary btn-copy" id="btn-copy-invite-link" type="button">Copy Link</button>
+              </div>
+            </div>
+
+            <div class="modal-tab-container">
+              <label class="modal-field-label" for="txt-invite-key">Option 2: Invite Key</label>
+              <div class="key-display-wrapper">
+                <textarea id="txt-invite-key" class="key-textarea" readonly></textarea>
+                <button class="btn btn-secondary btn-copy" id="btn-copy-invite-key" type="button">Copy Key</button>
+              </div>
+            </div>
+
+            <div class="modal-response-section">
+              <label class="modal-field-label" for="txt-invite-response">Paste Viewer's Response Key</label>
+              <textarea id="txt-invite-response" class="key-textarea" placeholder="Paste response key here..."></textarea>
+              <button class="btn btn-primary" id="btn-connect-invited-viewer" type="button">Connect Viewer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="toast" class="toast-container">
+        <div class="toast-body">
+          <span class="toast-icon"></span>
+          <span class="toast-message"></span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

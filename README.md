@@ -44,8 +44,18 @@ This project must be deployed from the Vite build output, not from the raw repos
 - The source `index.html` is only for Vite development.
 - GitHub Pages should publish the built `dist/` bundle.
 - A workflow is included at `.github/workflows/deploy-pages.yml` to build and deploy automatically on pushes to `main`.
+- A fallback branch-based publish path is also available through `npm run build:pages`, which writes the built site to `docs/`.
 
 In the repository settings, set Pages to use `GitHub Actions` as the source. If Pages is currently serving from the branch root, you will get unstyled HTML because the raw `src/main.js` and CSS module imports are not browser-ready without Vite.
+
+If you prefer branch-based Pages instead of Actions:
+
+1. Run `npm run build:pages`
+2. Commit the generated `docs/` folder
+3. In GitHub Pages settings, choose `Deploy from a branch`
+4. Select `main` and the `/docs` folder
+
+Do not publish from the branch root.
 
 ## Connection Flow
 
