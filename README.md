@@ -37,6 +37,16 @@ npm run build
 
 The Vite config is set up with `base: /p2p-screen-share/` so the built app is ready for GitHub Pages-style hosting under the repository path.
 
+## GitHub Pages Deployment
+
+This project must be deployed from the Vite build output, not from the raw repository root files.
+
+- The source `index.html` is only for Vite development.
+- GitHub Pages should publish the built `dist/` bundle.
+- A workflow is included at `.github/workflows/deploy-pages.yml` to build and deploy automatically on pushes to `main`.
+
+In the repository settings, set Pages to use `GitHub Actions` as the source. If Pages is currently serving from the branch root, you will get unstyled HTML because the raw `src/main.js` and CSS module imports are not browser-ready without Vite.
+
 ## Connection Flow
 
 1. The host captures a screen, window, or tab and generates a host key.
