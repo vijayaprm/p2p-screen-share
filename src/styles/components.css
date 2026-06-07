@@ -1,0 +1,194 @@
+.badge,
+.action-tag,
+.viewer-status,
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+}
+
+.badge {
+  padding: 7px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-primary {
+  background: rgba(111, 197, 214, 0.14);
+  color: var(--accent-sky);
+}
+
+.badge-success {
+  background: rgba(75, 192, 135, 0.14);
+  color: #88ecc0;
+}
+
+.gradient-text {
+  color: var(--accent-gold);
+}
+
+.mode-card,
+.key-textarea,
+.viewer-card,
+.viewer-empty-state,
+.status-indicator {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+}
+
+.mode-card {
+  padding: 30px 26px;
+  text-align: left;
+  box-shadow: var(--shadow-card);
+  transition: transform var(--transition), border-color var(--transition);
+}
+
+.mode-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-strong);
+}
+
+.mode-card h3 {
+  margin: 0 0 8px;
+}
+
+.mode-card p,
+.action-tag,
+.step-label,
+.modal-field-label {
+  color: var(--text-muted);
+}
+
+.card-icon {
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 24px;
+  border-radius: 22px;
+}
+
+.host-icon {
+  background: rgba(213, 151, 67, 0.16);
+  color: #ffd9a8;
+}
+
+.viewer-icon {
+  background: rgba(111, 197, 214, 0.14);
+  color: #c8f4ff;
+}
+
+.action-tag {
+  margin-top: 18px;
+  font-size: 0.92rem;
+}
+
+.btn,
+.btn-back,
+.control-action-btn,
+.toolbar-btn,
+.btn-disconnect-viewer,
+.btn-close-modal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  transition: background var(--transition), border-color var(--transition), transform var(--transition);
+}
+
+.btn,
+.control-action-btn,
+.btn-back {
+  padding: 13px 20px;
+}
+
+.btn:hover,
+.btn-back:hover,
+.control-action-btn:hover,
+.toolbar-btn:hover,
+.btn-disconnect-viewer:hover,
+.btn-close-modal:hover {
+  transform: translateY(-1px);
+}
+
+.btn-primary,
+.control-action-btn.is-active {
+  background: linear-gradient(135deg, var(--accent-gold), var(--accent-coral));
+  color: white;
+}
+
+.btn-secondary,
+.btn-outline,
+.btn-back,
+.control-action-btn,
+.toolbar-btn,
+.btn-disconnect-viewer,
+.btn-close-modal {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.btn-outline {
+  background: transparent;
+}
+
+.btn-lg {
+  min-height: 56px;
+  padding-inline: 24px;
+}
+
+.control-action-btn.danger {
+  background: rgba(239, 106, 106, 0.15);
+  border-color: rgba(239, 106, 106, 0.26);
+}
+
+.key-display-wrapper,
+.key-input-wrapper {
+  position: relative;
+}
+
+.key-textarea {
+  width: 100%;
+  min-height: 160px;
+  padding: 18px 18px 22px;
+  color: var(--text-main);
+  resize: vertical;
+}
+
+.btn-copy {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+}
+
+.status-indicator {
+  gap: 12px;
+  padding: 16px 18px;
+  margin-top: 18px;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.24);
+  border-top-color: white;
+  border-radius: 999px;
+  animation: spin 1s linear infinite;
+}
+
+.hidden {
+  display: none !important;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,12 +1,16 @@
 {
   "name": "p2p-screen-share",
   "version": "0.0.0",
+  "description": "InfinityCast is a serverless peer-to-peer screen sharing app powered by manual WebRTC signaling.",
   "private": true,
   "type": "module",
+  "author": "VPRM",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "npm run build"
   },
   "devDependencies": {
     "vite": "^8.0.12"

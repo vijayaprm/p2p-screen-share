@@ -1,0 +1,54 @@
+@media (max-width: 980px) {
+  .selection-grid,
+  .wizard-container,
+  .stream-layout.has-host-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  .stream-main-area.chat-open {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'status'
+      'video'
+      'toolbar'
+      'controls'
+      'chat';
+  }
+
+  .main-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-container {
+    width: min(100%, calc(100% - 20px));
+    padding-top: 14px;
+  }
+
+  .wizard-content,
+  .wizard-sidebar,
+  .host-sidebar,
+  .stream-main-area,
+  .modal-card {
+    padding: 22px;
+  }
+
+  .step-navigation,
+  .stream-controls,
+  .chat-input-wrapper {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .video-wrapper {
+    min-height: 220px;
+    height: min(42vh, 380px);
+  }
+
+  .viewer-sidebar {
+    min-height: 360px;
+  }
+}

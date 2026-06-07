@@ -1,52 +1,33 @@
-# Peer-to-Peer Screen Share Application - Context Documentation
+# InfinityCast Context
 
 ## Overview
-This is a web-based peer-to-peer screen sharing application that enables direct communication between two users without requiring a central server. The application uses WebRTC technology to establish direct connections.
 
-## File Structure
-The main HTML file contains the complete user interface with three main sections:
-1. Landing screen (default view)
-2. Host wizard for creating connections
-3. Viewer wizard for joining connections
-4. Stream display panel for the actual video feed
+InfinityCast is a production-leaning refactor of a peer-to-peer screen sharing prototype. The app keeps manual WebRTC signaling but now separates the UI and behavior into reusable modules so host flow, viewer flow, chat, invites, stream controls, and annotations can evolve independently.
 
-## Key Features
-- Two-step connection process: Host generates key, Viewer responds with key
-- Direct peer-to-peer connection establishment
-- Video streaming display with fullscreen and disconnect controls
-- Diagnostic console for developers
-- Responsive design with step-by-step wizards
+## Current Structure
 
-## Main Sections
+- `index.html`: application shell and fixed stream DOM hierarchy
+- `src/main.js`: app bootstrap and diagnostics console wiring
+- `src/lib/utils.js`: DOM registry, app state, screen/wizard navigation, toast, reset helpers
+- `src/lib/signaling.js`: session key encode/decode helpers
+- `src/lib/rtc.js`: peer connection setup, data channel registration, ICE gathering helpers
+- `src/features/host.js`: screen capture, host offer generation, response application
+- `src/features/viewer.js`: host offer parsing, answer generation, invite URL parsing
+- `src/features/stream.js`: fullscreen, disconnect, mic toggle, host viewer list rendering
+- `src/features/invite.js`: extra viewer invite modal flow
+- `src/features/chat.js`: sidebar toggle and chat messaging over data channels
+- `src/features/annotations.js`: canvas overlay sizing and local annotation interactions
+- `src/styles/`: split CSS files by concern
 
-### Landing Screen
-- Contains links to start Host or Viewer modes
-- Introduction to the peer-to-peer concept
+## Key Behaviors
 
-### Host Wizard (Steps 1-3)
-1. **Step 1**: Display connection key for host to share with peer
-2. **Step 2**: Send the generated key to peer and proceed to next step
-3. **Step 3**: Receive response key from peer and establish connection
+- Host connections and invite connections both reuse the same RTC helper layer.
+- Viewer chat and host chat run through registered WebRTC data channels.
+- App reset clears media tracks, peer connections, modal state, chat state, and stream UI state.
+- The stream layout now keeps the video, annotation canvas, controls, chat sidebar, and host sidebar in a valid structure.
 
-### Viewer Wizard (Steps 1-2)
-1. **Step 1**: Input host key to generate response
-2. **Step 2**: Display and copy response key to send back to host
+## Follow-Up Opportunities
 
-### Stream Display
-- Video playback area for the peer-to-peer stream
-- Fullscreen toggle and disconnect buttons
-
-## UI Components
-- Step-by-step wizards with navigation controls
-- Text areas for key input/output
-- Copy buttons for keys
-- Status indicators and connection badges
-- Diagnostic console toggle
-- Toast notifications
-
-## Technical Implementation Notes
-The application uses:
-- HTML5 for structure and content
-- CSS for styling and responsive design
-- JavaScript (main.js) for WebRTC implementation and UI logic
-- WebRTC APIs for peer-to-peer communication
+- Synchronize annotations across peers through data channels
+- Persist linting and formatting tooling with ESLint and Prettier
+- Add automated browser tests for the manual key exchange flow

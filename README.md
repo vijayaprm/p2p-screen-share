@@ -1,30 +1,51 @@
-# Peer-to-Peer Screen Share
+# InfinityCast
 
-Live demo: https://vijayaprm.github.io/p2p-screen-share/
+Live demo: [vijayaprm.github.io/p2p-screen-share](https://vijayaprm.github.io/p2p-screen-share/)
 
-A web-based peer-to-peer screen sharing application that enables direct communication between two users without requiring a central server. The application uses WebRTC technology to establish direct connections.
+InfinityCast is a browser-to-browser screen sharing app that uses manual WebRTC signaling instead of a dedicated signaling server. A host generates a share key, a viewer responds with a return key, and the stream connects directly between both browsers.
 
 ## Features
 
-- Two-step connection process: Host generates key, Viewer responds with key
-- Direct peer-to-peer connection establishment
-- Video streaming display with fullscreen and disconnect controls
-- Diagnostic console for developers
-- Responsive design with step-by-step wizards
+- Direct peer-to-peer screen streaming with no account system or backend
+- Manual host/viewer key exchange flow for local or out-of-band sharing
+- Invite flow for adding additional viewers during an active host session
+- In-stream chat over WebRTC data channels
+- Annotation overlay with draw, erase, color, and clear controls
+- Diagnostics console for connection and runtime troubleshooting
 
-## Getting Started
+## Architecture
 
-1. Open the HTML file in a modern web browser
-2. Choose to be either Host or Viewer
-3. Follow the step-by-step instructions to establish connection
+The app is now organized into focused modules:
+
+- `src/main.js`: bootstraps the app and shared diagnostics
+- `src/lib/`: signaling helpers, RTC setup, and shared UI/state utilities
+- `src/features/`: host flow, viewer flow, stream controls, invite modal, chat, and annotations
+- `src/styles/`: split CSS for layout, stream UI, chat, modal, diagnostics, and responsive behavior
 
 ## Development
 
-This project uses a simple HTML/CSS/JavaScript architecture with no build tools required. All code is contained in a single HTML file for easy deployment.
+```bash
+npm install
+npm run dev
+```
 
-## Contributing
+Build the production bundle with:
 
-This is a prototype application. For development contributions, please follow these guidelines:
-- Make small, focused commits
-- Add descriptive commit messages
-- Test functionality before committing
+```bash
+npm run build
+```
+
+The Vite config is set up with `base: /p2p-screen-share/` so the built app is ready for GitHub Pages-style hosting under the repository path.
+
+## Connection Flow
+
+1. The host captures a screen, window, or tab and generates a host key.
+2. The viewer pastes the host key and generates a response key.
+3. The host pastes the response key to finish the direct WebRTC handshake.
+4. Once connected, the stream screen enables chat, fullscreen, annotations, and host-side invite management.
+
+## Notes
+
+- Chat is carried over WebRTC data channels, so it becomes available only after the peer connection is established.
+- Annotation controls are local browser overlays today. They do not yet synchronize between peers.
+- The `deploy` script currently performs the production build and is ready to be extended for your preferred hosting workflow.

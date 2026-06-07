@@ -1,0 +1,31 @@
+.annotation-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.annotation-canvas.is-active {
+  pointer-events: auto;
+}
+
+.annotation-toolbar {
+  grid-area: toolbar;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.toolbar-btn,
+#draw-color {
+  min-width: 46px;
+  min-height: 46px;
+  padding: 0 14px;
+}
+
+#draw-color {
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+}
